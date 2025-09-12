@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
+import type { DataTablePageEvent } from "primereact/datatable";
+
 import { Column } from "primereact/column";
 import { Checkbox } from "primereact/checkbox";
 import { OverlayPanel } from "primereact/overlaypanel";
@@ -147,13 +149,14 @@ export default function ArtworksTable() {
         totalRecords={totalRecords}
         lazy
         first={page * rows}
-        onPage={(e) => {
-          setPage(e.page);
-          setRows(e.rows);
+        onPage={(e: DataTablePageEvent) => {
+          setPage(e.page!);
+          setRows(e.rows!);
         }}
         loading={loading}
         selection={selectedRows}
         onSelectionChange={handleTableSelectionChange}
+        selectionMode="checkbox" // <-- explicitly define row selection
         dataKey="id"
         rowHover
         className="shadow-sm"
