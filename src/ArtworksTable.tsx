@@ -17,6 +17,7 @@ interface Artwork {
 }
 
 export default function ArtworksTable() {
+    
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [page, setPage] = useState(0);
