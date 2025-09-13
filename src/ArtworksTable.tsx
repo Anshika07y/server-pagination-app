@@ -102,7 +102,7 @@ export default function ArtworksTable() {
   const columnsData = [
     { field: "title", header: "Title" },
     { field: "place_of_origin", header: "Place of Origin" },
-    { field: "artist_display", header: "Artist" },
+    { field: "artist_display", header: "Artist Display" },
     { field: "inscriptions", header: "Inscriptions" },
     { field: "date_start", header: "Start Date" },
     { field: "date_end", header: "End Date" },
