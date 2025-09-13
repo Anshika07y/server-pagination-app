@@ -1,9 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import type { DataTablePageEvent } from "primereact/datatable";
-
 import { Column } from "primereact/column";
-import { Checkbox } from "primereact/checkbox";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
@@ -18,12 +16,12 @@ interface Artwork {
   date_end: number;
 }
 
+const PAGE_SIZE = 12;
+
 export default function ArtworksTable() {
-    
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [page, setPage] = useState(0);
-  const [rows, setRows] = useState(12);
   const [loading, setLoading] = useState(false);
   const [selectedMap, setSelectedMap] = useState<{ [id: number]: Artwork }>({});
   const [selectedRows, setSelectedRows] = useState<Artwork[]>([]);
@@ -33,21 +31,21 @@ export default function ArtworksTable() {
 
   useEffect(() => {
     loadArtworks();
-  }, [page, rows]);
+  }, [page]);
 
   async function loadArtworks() {
     setLoading(true);
     try {
-      const response = await fetch(
-        `https://api.artic.edu/api/v1/artworks?page=${page + 1}&limit=${rows}`
+      const res = await fetch(
+        `https://api.artic.edu/api/v1/artworks?page=${
+          page + 1
+        }&limit=${PAGE_SIZE}`
       );
-      const data = await response.json();
+      const data = await res.json();
       setArtworks(data.data);
       setTotalRecords(data.pagination.total);
-      const currentSelected = data.data.filter(
-        (art: Artwork) => selectedMap[art.id]
-      );
-      setSelectedRows(currentSelected);
+
+      setSelectedRows(data.data.filter((art: Artwork) => selectedMap[art.id]));
     } catch (err) {
       console.error("Error fetching artworks:", err);
     } finally {
@@ -68,7 +66,7 @@ export default function ArtworksTable() {
     setSelectedRows(event.value);
   }
 
-  function handleRowCountSubmit() {
+  async function handleRowCountSubmit() {
     const countToSelect = parseInt(rowCountInput);
     if (isNaN(countToSelect) || countToSelect <= 0) return;
 
@@ -76,37 +74,39 @@ export default function ArtworksTable() {
     let selectedCount = 0;
     let currentPageIndex = 0;
 
-    async function selectRowsAcrossPages() {
-      while (
-        selectedCount < countToSelect &&
-        currentPageIndex * rows < totalRecords
-      ) {
-        const response = await fetch(
-          `https://api.artic.edu/api/v1/artworks?page=${
-            currentPageIndex + 1
-          }&limit=${rows}`
-        );
-        const data = await response.json();
-
-        for (let art of data.data) {
-          if (selectedCount < countToSelect) {
-            updatedSelection[art.id] = art;
-            selectedCount++;
-          }
-        }
-        currentPageIndex++;
-      }
-
-      setSelectedMap(updatedSelection);
-      const visibleSelected = artworks.filter(
-        (art) => updatedSelection[art.id]
+    while (
+      selectedCount < countToSelect &&
+      currentPageIndex * PAGE_SIZE < totalRecords
+    ) {
+      const res = await fetch(
+        `https://api.artic.edu/api/v1/artworks?page=${
+          currentPageIndex + 1
+        }&limit=${PAGE_SIZE}`
       );
-      setSelectedRows(visibleSelected);
+      const data = await res.json();
+
+      for (let art of data.data) {
+        if (selectedCount < countToSelect) {
+          updatedSelection[art.id] = art;
+          selectedCount++;
+        }
+      }
+      currentPageIndex++;
     }
 
-    selectRowsAcrossPages();
+    setSelectedMap(updatedSelection);
+    setSelectedRows(artworks.filter((art) => updatedSelection[art.id]));
     overlayRef.current?.hide();
   }
+
+  const columnsData = [
+    { field: "title", header: "Title" },
+    { field: "place_of_origin", header: "Place of Origin" },
+    { field: "artist_display", header: "Artist" },
+    { field: "inscriptions", header: "Inscriptions" },
+    { field: "date_start", header: "Start Date" },
+    { field: "date_end", header: "End Date" },
+  ];
 
   const titleColumnHeader = (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -126,7 +126,7 @@ export default function ArtworksTable() {
             onChange={(e) => setRowCountInput(e.target.value)}
           />
           <Button
-            label="Select"
+            label="Submit"
             onClick={handleRowCountSubmit}
             className="p-button-sm p-button-primary"
           />
@@ -145,48 +145,28 @@ export default function ArtworksTable() {
       <DataTable
         value={artworks}
         paginator
-        rows={rows}
+        rows={PAGE_SIZE}
         totalRecords={totalRecords}
         lazy
-        first={page * rows}
-        onPage={(e: DataTablePageEvent) => {
-          setPage(e.page!);
-          setRows(e.rows!);
-        }}
+        first={page * PAGE_SIZE}
+        onPage={(e: DataTablePageEvent) => setPage(e.page!)}
         loading={loading}
         selection={selectedRows}
         onSelectionChange={handleTableSelectionChange}
-        selectionMode="checkbox" // <-- explicitly define row selection
+        selectionMode="checkbox"
         dataKey="id"
         rowHover
         className="shadow-sm"
       >
-        <Column
-          selectionMode="multiple"
-          headerStyle={{ width: "3em" }}
-          body={(art) => (
-            <Checkbox
-              inputId={String(art.id)}
-              checked={!!selectedMap[art.id]}
-              onChange={(e) => {
-                const updatedSelection = { ...selectedMap };
-                if (e.checked) {
-                  updatedSelection[art.id] = art;
-                } else {
-                  delete updatedSelection[art.id];
-                }
-                setSelectedMap(updatedSelection);
-                setSelectedRows(artworks.filter((a) => updatedSelection[a.id]));
-              }}
-            />
-          )}
-        />
-        <Column field="title" header={titleColumnHeader} />
-        <Column field="place_of_origin" header="Place of Origin" />
-        <Column field="artist_display" header="Artist" />
-        <Column field="inscriptions" header="Inscriptions" />
-        <Column field="date_start" header="Start Date" />
-        <Column field="date_end" header="End Date" />
+        <Column selectionMode="multiple" headerStyle={{ width: "3em" }} />
+
+        {columnsData.map((col) => (
+          <Column
+            key={col.field}
+            field={col.field}
+            header={col.field === "title" ? titleColumnHeader : col.header}
+          />
+        ))}
       </DataTable>
     </div>
   );
